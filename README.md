@@ -1,2 +1,0 @@
-# brainfuck
-a brainfuck interpreter
