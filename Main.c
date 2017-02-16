@@ -37,6 +37,12 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
+/*Linux下通过termios.h实现的读取字符*/
+#ifdef _WIN32 //Linux platform  
+	#include <conio.h>  
+#else  
+	#include <termios.h>  
+#endif
 
 #define MODE_INIT 0x00000000
 #define MODE_LOOP 0x00000001
@@ -63,6 +69,37 @@ unsigned char buffer[MAX_BUF_POS];//储存缓存变量
 int buf_pos=0;//缓存指针的值
 
 Command cmd_link;//全局的命令列表
+  
+char _getch(void)  
+{  
+	#ifdef _WIN32  
+	//无动作
+	#else   // 保存并修改终端参数  
+		struct termios stored_settings;  
+		struct termios new_settings;  
+		tcgetattr (0, &stored_settings);  
+		new_settings = stored_settings;  
+		new_settings.c_lflag &= (~ICANON);  
+		new_settings.c_cc[VTIME] = 0;  
+		new_settings.c_cc[VMIN] = 1;  
+		tcsetattr (0, TCSANOW, &new_settings);  
+	#endif  
+	int ret = 0;  
+	char c;  
+	#ifdef _WIN32  
+		c = getch();  
+	#else  
+		c = getchar();  
+		putchar('\b'); // 删除回显  
+	#endif  
+	printf("%c", c);  
+	#ifdef _WIN32  
+	//没有动作
+	#else
+		tcsetattr (0, TCSANOW, &stored_settings); // 恢复终端参数  
+	#endif  
+	return c;   
+}
 
 int addCommand(string name,string cmd){//向命令列表中添加一条命令
 	command tmp=&cmd_link;
@@ -107,11 +144,6 @@ int brainfuck(string cmd){//解析命令
 	}else if(strcmp(cmd,"reset")==0){//初始化
 		memset(storage,0,max_pos);
 		max_pos=pos=buf_pos=0;
-		command tmp;
-		for(tmp=cmd_link.next;tmp!=NULL;tmp=cmd_link.next){
-			cmd_link.next=cmd_link.next->next;
-			free(tmp);
-		}
 	}else if(strcmp(cmd,"help")==0){//帮助
 		printf("brainfuck帮助:\n");
 		printf("基础语法:\n");
@@ -215,8 +247,7 @@ int brainfuck(string cmd){//解析命令
 					}
 					break;
 				case ','://输入
-					storage[pos]=fgetc(stdin);
-					while(getchar()!='\n');
+					storage[pos]=_getch();
 					break;
 				case '.'://输出
 					putchar(storage[pos]);
