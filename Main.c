@@ -355,8 +355,10 @@ int brainfuck(string cmd){//解析命令
 					}
 					break;
 				case '$'://输入字符串
-					scanf("%s",&storage[pos]);
-					getchar();
+					do{
+						j=scanf("%[^\n]",&storage[pos]);
+						getchar();
+					}while(j==0);
 					break;
 			}
 		}
