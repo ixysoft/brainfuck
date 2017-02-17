@@ -13,6 +13,7 @@
  *		& 将当前指针的位置存入当前的当前位置
  *		$ 输入字符串
  *		~ 将当前位置内容取反
+ *		# 单行注释
  *		(简单的命令)
  *			+n 将当前位置的值+n
  *			-n 将当前位置的值-n
@@ -22,8 +23,6 @@
  *			=n 将当前位置的值置为n
  *			^n 将当前位置的值^n
  *			@指令名 调用指令
- *		  &指针模式
- *		  *buf模式(没有具体实现)
  *		? 输出当前状态
  *		{指令名:命令内容} 定义指令
  *
@@ -32,6 +31,15 @@
  *		0x01 循环模式
  *		0x02 指令模式
  *		0x04 过程模式
+ *
+ *	命令模式:
+ *		形式:
+ *			brainfuck 选项 [文件]
+ *		
+ *		选项:
+ *			-f 表示执行文件
+ *			-c 表示执行命令
+ *			-h 显示帮助信息
  * */
 
 #include<stdio.h>
@@ -67,6 +75,7 @@ int	pos=0;//指针位置
 int max_pos=0;//最大的位置指针
 unsigned char buffer[MAX_BUF_POS];//储存缓存变量
 int buf_pos=0;//缓存指针的值
+char comment=0x00;//默认为没有注释
 
 Command cmd_link;//全局的命令列表
   
@@ -128,11 +137,45 @@ string proc(string name){//获取过程值
 	return "";
 }
 
-void show(){
+void show(){//显示所有自定义命令
 	command head=&cmd_link;
 	for(;head->next;head=head->next){
 		printf("%s:%s\n",head->next->name,head->next->cmd);
 	}
+}
+
+void help(){
+	printf("brainfuck帮助:\n");
+	printf("基础语法:\n");
+	printf("+		当前指针内容+1\n");
+	printf("-		当前指针内容-1\n");
+	printf("<		当前指针左移\n");
+	printf(">		当前指针右移\n");
+	printf("[		循环开始部分,相当于\"while(*ptr){\"	,ptr为当前指针\n");
+	printf("]		循环结尾部分，相当于\"}\"\n");
+	printf(",		输入\n");
+	printf(".		输出\n");
+	printf("扩展语法:\n");
+	printf("(+n)		当前内存值+n\n");
+	printf("(-n)		当前内存值-n\n");
+	printf("(*n)		当前内存值*n\n");
+	printf("(/n)		当前内存值/n\n");
+	printf("(%%n)		当前内存值%%n\n");
+	printf("(^n)		当前内存值^n\n");
+	printf("(&n)		当前内存值&n\n");
+	printf("(|n)		当前内存值|n\n");
+	printf("#		单行注释\n");
+	printf("~		当前内存值取反\n");
+	printf("$		读取一个字符串\n");
+	printf("&		将当前指针值存入内存\n");
+	printf("?		读取状态信息");
+	printf("(@过程名)	调用一个过程\n");
+	printf("{过程名:具体实现}	定义一个过程\n");
+	printf("文字命令:\n");
+	printf("help		查看帮助信息\n");
+	printf("cls		清屏\n");
+	printf("reset		系统初始化\n");
+	printf("quit		退出\n\n");
 }
 
 int brainfuck(string cmd){//解析命令
@@ -145,36 +188,7 @@ int brainfuck(string cmd){//解析命令
 		memset(storage,0,max_pos);
 		max_pos=pos=buf_pos=0;
 	}else if(strcmp(cmd,"help")==0){//帮助
-		printf("brainfuck帮助:\n");
-		printf("基础语法:\n");
-		printf("+		当前指针内容+1\n");
-		printf("-		当前指针内容-1\n");
-		printf("<		当前指针左移\n");
-		printf(">		当前指针右移\n");
-		printf("[		循环开始部分,相当于\"while(*ptr){\"	,ptr为当前指针\n");
-		printf("]		循环结尾部分，相当于\"}\"\n");
-		printf(",		输入\n");
-		printf(".		输出\n");
-		printf("扩展语法:\n");
-		printf("(+n)		当前内存值+n\n");
-		printf("(-n)		当前内存值-n\n");
-		printf("(*n)		当前内存值*n\n");
-		printf("(/n)		当前内存值/n\n");
-		printf("(%%n)		当前内存值%%n\n");
-		printf("(^n)		当前内存值^n\n");
-		printf("(&n)		当前内存值&n\n");
-		printf("(|n)		当前内存值|n\n");
-		printf("~		当前内存值取反\n");
-		printf("$		读取一个字符串\n");
-		printf("&		将当前指针值存入内存\n");
-		printf("?		读取状态信息");
-		printf("(@过程名)	调用一个过程\n");
-		printf("{过程名:具体实现}	定义一个过程\n");
-		printf("文字命令:\n");
-		printf("help		查看帮助信息\n");
-		printf("cls		清屏\n");
-		printf("reset		系统初始化\n");
-		printf("quit		退出\n\n");
+		help();
 	}else if(strcmp(cmd,"cls")==0){
 		system("printf \"\\033c\"");
 	}else{
@@ -185,6 +199,10 @@ int brainfuck(string cmd){//解析命令
 		for(i=0;(ch=cmd[i]) != '\0';i++){//遍历命令字符串
 			//printf("pos=%d[%d]",pos,storage[pos]);
 			//getchar();
+			if(ch=='\n')
+				comment=0x00;
+			else if(comment==0x01)//注释模式
+				continue;
 			switch(ch){
 				//基本命令
 				case '+'://值+1
@@ -253,6 +271,9 @@ int brainfuck(string cmd){//解析命令
 					putchar(storage[pos]);
 					break;
 				//扩展语法
+				case '#'://comment
+					comment=0x01;//注释模式
+					break;
 				case '~'://取反
 					storage[pos]=~storage[pos];
 					break;
@@ -342,11 +363,11 @@ int brainfuck(string cmd){//解析命令
 	}
 }
 
-void end_code(){
+void end_code(){//结束代码
 	puts("谢谢使用brainfuck系统!");
 }
 
-int main(int argc,char *argv){
+int main(int argc,char *argv[]){
 	atexit(end_code);
 	string cmd=(string)malloc(sizeof(CMD_LEN));
 	char ch;
@@ -363,7 +384,47 @@ int main(int argc,char *argv){
 			cmd[i]='\0';
 			brainfuck(cmd);
 		}
-	}else{
-		
+	}else{//命令模式
+		int flag=0x01;//默认为执行文件
+		for(i=1;i<argc;i++){
+			if(argv[i][0]=='-'){//选项
+				switch(argv[i][1]){
+					case 'h'://显示帮助
+						help();
+						exit(0);
+						break;//这个break不是必要的，只是为了美观才加上的
+					case 'f'://执行文件
+						flag=0x01;
+						break;
+					case 'c'://执行命令
+						flag=0x02;
+						break;
+					default://无法识别
+						printf("无法识别的选项%s\n",argv[i]);
+						exit(1);
+						break;
+				}
+			}else{
+				FILE *fp=NULL;
+				switch(flag){
+					case 0x01://执行文件
+						fp=fopen(argv[i],"r");//打开可执行文件
+						if(fp==NULL){//文件打开失败
+							printf("文件%s不存在!\n",argv[i]);
+							exit(1);
+						}
+						while(!feof(fp)){
+							fread(cmd,sizeof(char),CMD_LEN,fp);
+							brainfuck(cmd);//执行命令
+						}
+						break;
+					case 0x02://执行命令
+						sprintf(cmd,"%s",argv[i]);
+						brainfuck(cmd);
+						break;
+				}
+				if(fp) fclose(fp);
+			}
+		}
 	}
 }
