@@ -1,4 +1,4 @@
-#brainfuck解释器:  
+# brainfuck解释器:  
 介绍:用了一个下午的时间实现了这个brainfuck的升级版本,除了支持基础的brainfuck名另外,这个解释器还支持一些扩展的操作.  
 
 
